@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>粤东2区市场看板</title>
+    <script src="echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            min-height: 100vh;
+            color: #1a237e;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 15px; }
+        
+        /* 头部标题 */
+        .header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #2196f3 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(21, 101, 192, 0.3);
+        }
+        .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        .header .subtitle { font-size: 14px; opacity: 0.9; }
+        
+        /* 切片导航 */
+        .tab-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: 2px solid #1565c0;
+            background: white;
+            color: #1565c0;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: #1565c0;
+            color: white;
+        }
+        .tab-btn:hover:not(.active) {
+            background: #e3f2fd;
+        }
+        
+        /* KPI卡片样式 - 6个独立卡片一排 */
+        .kpi-cards {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .kpi-cards::-webkit-scrollbar {
+            height: 6px;
+        }
+        .kpi-cards::-webkit-scrollbar-thumb {
+            background: #bbdefb;
+            border-radius: 3px;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 14px;
+            box-shadow: 0 4px 15px rgba(21, 101, 192, 0.1);
+            position: relative;
+            overflow: hidden;
+            flex: 0 0 calc(16.666% - 10px);
+            min-width: 130px;
+            border-top: 4px solid #1565c0;
+        }
+        .kpi-card:nth-child(2) { border-top-color: #26a69a; }
+        .kpi-card:nth-child(3) { border-top-color: #7b1fa2; }
+        .kpi-card:nth-child(4) { border-top-color: #f57c00; }
+        .kpi-card:nth-child(5) { border-top-color: #c62828; }
+        .kpi-card:nth-child(6) { border-top-color: #00838f; }
+        
+        .kpi-label {
+            font-size: 11px;
+            color: #78909c;
+            margin-bottom: 6px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .kpi-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1565c0;
+            line-height: 1.2;
+        }
+        .kpi-value.green { color: #26a69a; }
+        .kpi-value.purple { color: #7b1fa2; }
+        .kpi-value.orange { color: #f57c00; }
+        .kpi-value.red { color: #c62828; }
+        .kpi-value.cyan { color: #00838f; }
+        .kpi-sub {
+            font-size: 10px;
+            color: #90a4ae;
+            margin-top: 4px;
+        }
+        .kpi-rate {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+        .rate-high { background: #e8f5e9; color: #2e7d32; }
+        .rate-mid { background: #fff3e0; color: #ef6c00; }
+        .rate-low { background: #ffebee; color: #c62828; }
+        
+        /* 销售明细标签页 */
+        .detail-tabs {
+            margin-bottom: 15px;
+        }
+        .detail-tabs .tab-btn {
+            padding: 8px 20px;
+            font-size: 13px;
+        }
+        
+        /* 表格视图容器 - 快速切换 */
+        .view-container {
+            position: relative;
+            overflow: hidden;
+            min-height: 100px;
+        }
+        .view-panel {
+            transition: opacity 0.15s ease;
+            opacity: 0;
+            visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none;
+        }
+        .view-panel.active {
+            opacity: 1;
+            visibility: visible;
+            position: relative;
+            pointer-events: auto;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(21, 101, 192, 0.1);
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1565c0;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e3f2fd;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background: #1565c0;
+            border-radius: 2px;
+        }
+        
+        /* 并排布局 */
+        .side-by-side {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .side-by-side .card { margin-bottom: 0; }
+
+        /* 图表行 */
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 12px rgba(21, 101, 192, 0.1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 220px;
+        }
+        .chart-card .chart {
+            width: 100%;
+            height: 170px;
+        }
+        .ring-info {
+            width: 100%;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .ring-info-text {
+            font-size: 11px;
+            color: #78909c;
+        }
+        .chart-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1565c0;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .chart { height: 200px; }
+        
+        /* 筛选器 */
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-select {
+            padding: 8px 16px;
+            border: 2px solid #e3f2fd;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1565c0;
+            background: white;
+            cursor: pointer;
+        }
+        .filter-select:focus {
+            outline: none;
+            border-color: #1565c0;
+        }
+        .search-input {
+            padding: 8px 16px;
+            border: 2px solid #e3f2fd;
+            border-radius: 8px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 200px;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #1565c0;
+        }
+        
+        /* 表格 */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 8px;
+            text-align: center;
+            border-bottom: 1px solid #e3f2fd;
+            color: #37474f;
+        }
+        tr:hover { background: #f5f5f5; }
+        .clickable { cursor: pointer; color: #1565c0; text-decoration: underline; }
+        .clickable:hover { color: #0d47a1; }
+        
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #37474f;
+            font-weight: 500;
+        }
+
+        /* 分页 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-top: 15px;
+            padding: 10px 0 5px;
+            border-top: 1px solid #e3f2fd;
+        }
+        .pagination .page-btn {
+            min-width: 34px;
+            height: 34px;
+            border: 1px solid #bbdefb;
+            background: white;
+            color: #1565c0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0 8px;
+        }
+        .pagination .page-btn:hover:not(.disabled):not(.active) {
+            background: #e3f2fd;
+            border-color: #1976d2;
+        }
+        .pagination .page-btn.active {
+            background: #1565c0;
+            color: white;
+            border-color: #1565c0;
+        }
+        .pagination .page-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .pagination .page-info {
+            font-size: 13px;
+            color: #78909c;
+            margin: 0 6px;
+        }
+        
+        /* 下钻弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            max-width: 95%;
+            max-height: 90vh;
+            overflow: auto;
+            width: 800px;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-title { font-size: 18px; font-weight: 600; color: #1565c0; }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #f5f5f5;
+            border: none;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            color: #78909c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .modal-close:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .kpi-card {
+                flex: 0 0 calc(33.333% - 10px);
+                min-width: 120px;
+            }
+            .side-by-side { grid-template-columns: 1fr; }
+            .chart-card .chart { width: 100%; }
+        }
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .kpi-cards {
+                gap: 10px;
+                flex-wrap: wrap;
+                display: flex;
+            }
+            .kpi-card {
+                flex: 1 1 calc(50% - 8px);
+                min-width: 45%;
+                max-width: 48%;
+                padding: 14px 12px;
+            }
+            .kpi-value { font-size: 16px; }
+            .chart-row { grid-template-columns: 1fr; }
+            .chart-card { min-height: 180px; padding: 10px; }
+            .chart-card .chart { height: 150px; width: 100%; }
+            .header { padding: 12px; }
+            .header h1 { font-size: 16px; }
+            .header .subtitle { font-size: 11px; }
+            .tab-nav { gap: 5px; }
+            .tab-btn { padding: 6px 10px; font-size: 11px; border-radius: 15px; }
+            .card { padding: 12px; margin-bottom: 12px; }
+            .card-title { font-size: 13px; margin-bottom: 12px; }
+            /* 表格横向滚动 */
+            .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            table { min-width: 500px; font-size: 10px; }
+            th, td { padding: 6px 4px; }
+            th { font-size: 10px; }
+        }
+        @media (max-width: 480px) {
+            .container { padding: 5px; }
+            .kpi-cards {
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .kpi-card {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 48%;
+                max-width: 50%;
+                padding: 10px 8px;
+            }
+            .kpi-label { font-size: 9px; }
+            .kpi-value { font-size: 14px; }
+            .kpi-sub { font-size: 8px; }
+            .header { padding: 10px; border-radius: 8px; }
+            .header h1 { font-size: 14px; margin-bottom: 5px; }
+            .header .subtitle { font-size: 10px; }
+            .tab-nav { gap: 4px; margin-bottom: 12px; }
+            .tab-btn { padding: 5px 8px; font-size: 10px; border-radius: 12px; }
+            .chart-card { min-height: 150px; padding: 8px; }
+            .chart-card .chart { height: 120px; }
+            .chart-title { font-size: 12px; margin-bottom: 8px; }
+            .ring-info-text { font-size: 9px; }
+            .card { padding: 10px; margin-bottom: 10px; border-radius: 8px; }
+            .card-title { font-size: 12px; padding-bottom: 8px; margin-bottom: 10px; }
+            .filter-row { margin-bottom: 10px; }
+            .filter-select, .search-input { padding: 6px 10px; font-size: 12px; }
+            table { min-width: 400px; font-size: 9px; }
+            th, td { padding: 5px 3px; }
+            th { font-size: 9px; }
+            .detail-tabs { margin-bottom: 10px; }
+            .detail-tabs .tab-btn { padding: 5px 10px; font-size: 11px; }
+            .progress-bar { height: 14px; }
+            .progress-text { font-size: 9px; }
+            .kpi-rate { padding: 2px 5px; font-size: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>广东——粤东2公司市场看板</h1>
+            <div class="subtitle">数据来源：粤东2区.xlsx</div>
+        </div>
+        
+        <!-- 切片导航 -->
+        <div class="tab-nav" id="cityTabs">
+            <button class="tab-btn active" data-city="全部">总体概览</button>
+            <button class="tab-btn" data-city="汕尾市">汕尾市</button>
+            <button class="tab-btn" data-city="潮州市">潮州市</button>
+            <button class="tab-btn" data-city="揭阳市">揭阳市</button>
+            <button class="tab-btn" data-city="汕头市">汕头市</button>
+        </div>
+        
+        <!-- KPI卡片区域 - 6个独立卡片 -->
+        <div class="kpi-cards" id="kpiGrid">
+            <!-- 动态生成 -->
+        </div>
+        
+        <!-- 销售类型分析 -->
+        <div class="card">
+            <div class="card-title">销售类型分析（品牌品 / 高值品 / 商销品）</div>
+            <div class="chart-row" id="categoryCharts">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+        
+        <!-- 销售进度分析 & 终端覆盖情况 并排 -->
+        <div class="side-by-side">
+            <!-- 销售进度分析（左） -->
+            <div class="card">
+                <div class="card-title">销售分析</div>
+                <div class="filter-row">
+                    <select class="filter-select" id="categoryFilter">
+                        <option value="全部">全部类型</option>
+                        <option value="品牌品">品牌品</option>
+                        <option value="高值品">高值品</option>
+                        <option value="商销品">商销品</option>
+                    </select>
+                </div>
+                <div id="progressChart" class="chart" style="height: 280px;"></div>
+
+            </div>
+            
+            <!-- 终端覆盖情况（右） -->
+            <div class="card">
+                <div class="card-title">终端进度情况（按等级）</div>
+                <div id="levelChart" class="chart" style="height: 250px;"></div>
+            </div>
+        </div>
+        
+        <!-- 销售明细 -->
+        <div class="card">
+            <div class="card-title">销售明细</div>
+            <div class="tab-nav detail-tabs">
+                <button class="tab-btn active" data-view="terminal" onclick="switchDetailView('terminal')">终端销售情况</button>
+                <button class="tab-btn" data-view="product" onclick="switchDetailView('product')">产品销售明细</button>
+            </div>
+            <div class="filter-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索...">
+            </div>
+            <div class="view-container">
+                <!-- 终端销售情况 -->
+                <div id="terminalView" class="view-panel active">
+                    <div class="table-container">
+                        <table>
+                            <thead id="terminalHead"></thead>
+                            <tbody id="terminalBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="terminalPagination"></div>
+                </div>
+                <!-- 产品销售明细 -->
+                <div id="productView" class="view-panel">
+                    <div class="table-container">
+                        <table>
+                            <thead id="productHead"></thead>
+                            <tbody id="productBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="productPagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 弹窗 -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">明细</div>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="table-container" id="modalTable"></div>
+        </div>
+    </div>
+
+    <script src="dashboard_data.js"></script>
+    <script>
+        let currentCity = '全部';
+        let currentCategory = '全部';
+        let charts = {};
+        
+        // 分页状态
+        const PAGE_SIZE_TERMINAL = 20;
+        const PAGE_SIZE_PRODUCT = 20;
+        let terminalPage = 1;
+        let productPage = 1;
+
+        // 渲染分页组件
+        function renderPagination(containerId, currentPage, totalPages, totalItems, onPageChange) {
+            const container = document.getElementById(containerId);
+            if (totalPages <= 1) {
+                container.innerHTML = totalItems > 0 
+                    ? '<div class="page-info">共 ' + totalItems + ' 条</div>' 
+                    : '';
+                return;
+            }
+
+            let html = '';
+            // 上一页
+            html += '<button class="page-btn' + (currentPage <= 1 ? ' disabled' : '') + '" ' + (currentPage > 1 ? 'onclick="' + onPageChange + '(' + (currentPage - 1) + ')"' : '') + '>‹</button>';
+
+            // 页码按钮
+            var startPage = Math.max(1, currentPage - 2);
+            var endPage = Math.min(totalPages, currentPage + 2);
+            if (startPage > 1) {
+                html += '<button class="page-btn" onclick="' + onPageChange + '(1)">1</button>';
+                if (startPage > 2) html += '<span class="page-info">...</span>';
+            }
+            for (var i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === currentPage ? ' active' : '') + '" onclick="' + onPageChange + '(' + i + ')">' + i + '</button>';
+            }
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += '<span class="page-info">...</span>';
+                html += '<button class="page-btn" onclick="' + onPageChange + '(' + totalPages + ')">' + totalPages + '</button>';
+            }
+
+            // 下一页
+            html += '<button class="page-btn' + (currentPage >= totalPages ? ' disabled' : '') + '" ' + (currentPage < totalPages ? 'onclick="' + onPageChange + '(' + (currentPage + 1) + ')"' : '') + '>›</button>';
+
+            // 总条数
+            html += '<span class="page-info">共 ' + totalItems + ' 条</span>';
+
+            container.innerHTML = html;
+        }
+        
+        // 格式化金额
+        function formatMoney(val) {
+            if (val >= 10000) {
+                return (val / 10000).toFixed(2) + '万';
+            }
+            return val.toFixed(2);
+        }
+        
+        // 格式化金额（统一显示万字，用于表格）
+        function formatMoneyWithUnit(val) {
+            if (val >= 10000) {
+                return (val / 10000).toFixed(2) + '万';
+            }
+            return val.toFixed(2) + '万';
+        }
+        
+        // 格式化百分比
+        function formatRate(val) {
+            return (val * 100).toFixed(1) + '%';
+        }
+        
+        // 获取完成率样式
+        function getRateClass(rate) {
+            if (rate >= 0.3) return 'rate-high';
+            if (rate >= 0.15) return 'rate-mid';
+            return 'rate-low';
+        }
+        
+        // 获取进度条颜色
+        function getProgressColor(rate) {
+            if (rate >= 0.5) return '#26a69a';
+            if (rate >= 0.25) return '#ff7043';
+            return '#ef5350';
+        }
+        
+        // 更新KPI卡片 - 6个独立卡片
+        function updateKPICards() {
+            const data = DASHBOARD_DATA[currentCity].summary;
+            const grid = document.getElementById('kpiGrid');
+            grid.innerHTML = `
+                <!-- 卡片1: 销售目标金额 -->
+                <div class="kpi-card">
+                    <div class="kpi-label">销售目标金额</div>
+                    <div class="kpi-value">${formatMoney(data.target_amount)}</div>
+                    <div class="kpi-sub">26年全年目标（无税）</div>
+                </div>
+                
+                <!-- 卡片2: 当前销售金额 -->
+                <div class="kpi-card">
+                    <div class="kpi-label">当前销售金额</div>
+                    <div class="kpi-value green">${formatMoney(data.sales_2026)}</div>
+                    <div class="kpi-sub">26年累计销售（无税）</div>
+                </div>
+                
+                <!-- 卡片3: 目标完成率 -->
+                <div class="kpi-card">
+                    <div class="kpi-label">目标完成率</div>
+                    <div class="kpi-value purple">${formatRate(data.completion_rate)}</div>
+                    <span class="kpi-rate ${getRateClass(data.completion_rate)}">待提升</span>
+                </div>
+                
+                <!-- 卡片4: 终端数 -->
+                <div class="kpi-card">
+                    <div class="kpi-label">终端数 / 在销终端数</div>
+                    <div class="kpi-value orange">${data.total_terminals} / ${data.selling_terminals}</div>
+                    <div class="kpi-sub">在销率 ${formatRate(data.selling_rate)}</div>
+                </div>
+                
+                <!-- 卡片5: 在销产品数 -->
+                <div class="kpi-card">
+                    <div class="kpi-label">在销产品数</div>
+                    <div class="kpi-value red">${data.selling_products}</div>
+                    <div class="kpi-sub">有实际销量的品种数</div>
+                </div>
+                
+                <!-- 卡片6: 销售费用 -->
+                <div class="kpi-card">
+                    <div class="kpi-label">销售费用</div>
+                    <div class="kpi-value cyan">${formatMoney(data.fee)}</div>
+                    <div class="kpi-sub">实际政策 ${data.actual_policy.toFixed(1)}%</div>
+                </div>
+            `;
+        }
+        
+        // 更新销售类型环形图
+        function updateCategoryCharts() {
+            const data = DASHBOARD_DATA[currentCity].categories;
+            const container = document.getElementById('categoryCharts');
+            const colors = { '品牌品': '#1565c0', '高值品': '#26a69a', '商销品': '#ff7043' };
+            
+            let html = '';
+            const categories = ['品牌品', '高值品', '商销品'];
+            
+            categories.forEach(cat => {
+                const d = data[cat];
+                html += `
+                    <div class="chart-card">
+                        <div id="ring_${cat}" class="chart"></div>
+                        <div class="ring-info">
+                            <div class="ring-info-text">目标 ${formatMoney(d.target)} · 完成 ${formatMoney(d.sales_2026)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            
+            // 销毁旧图表
+            Object.values(charts).forEach(chart => chart && chart.dispose());
+            charts = {};
+            
+            // 绘制环形图
+            categories.forEach(cat => {
+                const d = data[cat];
+                const chartDom = document.getElementById('ring_' + cat);
+                if (chartDom) {
+                    charts['ring_' + cat] = echarts.init(chartDom);
+                    charts['ring_' + cat].setOption({
+                        series: [{
+                            type: 'gauge',
+                            startAngle: 90,
+                            endAngle: -270,
+                            radius: '85%',
+                            center: ['50%', '50%'],
+                            pointer: { show: false },
+                            progress: {
+                                show: true,
+                                overlap: false,
+                                roundCap: true,
+                                clip: false,
+                                itemStyle: { color: colors[cat] }
+                            },
+                            axisLine: { lineStyle: { width: 14, color: [[1, '#e3f2fd']] } },
+                            splitLine: { show: false },
+                            axisTick: { show: false },
+                            axisLabel: { show: false },
+                            data: [{ value: d.completion_rate * 100, name: cat, title: { offsetCenter: ['0%', '-15%'], fontSize: 18, color: '#546e7a' }, detail: { offsetCenter: ['0%', '15%'], fontSize: 14, fontWeight: 'bold', color: colors[cat], formatter: function(v) { return v.toFixed(1) + '%'; } } }]
+                        }]
+                    });
+                }
+            });
+        }
+        
+        // 更新进度分析
+        function updateProgressChart() {
+            const data = DASHBOARD_DATA[currentCity].categories;
+            const chartDom = document.getElementById('progressChart');
+            
+            if (!charts['progress']) {
+                charts['progress'] = echarts.init(chartDom);
+            }
+            
+            const categories = currentCategory === '全部' 
+                ? ['品牌品', '高值品', '商销品'] 
+                : [currentCategory];
+            
+            charts['progress'].setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: ['目标金额', '2026销售'], bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+                xAxis: { type: 'category', data: categories },
+                yAxis: { type: 'value', axisLabel: { formatter: v => (v/10000).toFixed(0) + '万' } },
+                series: [
+                    { 
+                        name: '目标金额', 
+                        type: 'bar', 
+                        data: categories.map(c => data[c].target), 
+                        itemStyle: { color: '#e3f2fd' }, 
+                        barWidth: '30%',
+                        label: { show: true, position: 'top', formatter: v => (v.value/10000).toFixed(0) + '万', color: '#78909c', fontSize: 11 }
+                    },
+                    { 
+                        name: '2026销售', 
+                        type: 'bar', 
+                        data: categories.map(c => data[c].sales_2026), 
+                        itemStyle: { color: '#1565c0' }, 
+                        barWidth: '30%',
+                        label: { show: true, position: 'top', formatter: v => (v.value/10000).toFixed(0) + '万', color: '#1565c0', fontSize: 11, fontWeight: 'bold' }
+                    }
+                ]
+            });
+            
+        }
+        
+        // 更新等级覆盖图表
+        function updateLevelChart() {
+            const data = DASHBOARD_DATA[currentCity].level_coverage;
+            const chartDom = document.getElementById('levelChart');
+            
+            if (!charts['level']) {
+                charts['level'] = echarts.init(chartDom);
+            }
+            
+            const levels = ['其他', '二级', '三级'];
+            charts['level'].setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: ['目标终端', '在销终端'], bottom: 0 },
+                grid: { left: '3%', right: '15%', bottom: '15%', top: '5%', containLabel: true },
+                xAxis: { type: 'value', minInterval: 1 },
+                yAxis: { type: 'category', data: levels, axisLabel: { fontSize: 14, color: '#37474f' } },
+                series: [
+                    { 
+                        name: '目标终端', 
+                        type: 'bar', 
+                        data: levels.map(l => data[l].total), 
+                        itemStyle: { color: '#e3f2fd' },
+                        label: { show: true, position: 'right', formatter: '{c}', color: '#546e7a', fontSize: 12 }
+                    },
+                    { 
+                        name: '在销终端', 
+                        type: 'bar', 
+                        data: levels.map(l => data[l].selling), 
+                        itemStyle: { color: '#1565c0' },
+                        label: { show: true, position: 'right', formatter: '{c}', color: '#1565c0', fontSize: 12, fontWeight: 'bold' }
+                    }
+                ]
+            });
+        }
+        
+        // 切换明细视图（快速切换）
+        let currentDetailView = 'terminal';
+        
+        function switchDetailView(view, skipResetDrill) {
+            if (view === currentDetailView) return;
+
+            // 同步切换，确保状态立即生效
+            const oldPanel = document.getElementById(currentDetailView + 'View');
+            const newPanel = document.getElementById(view + 'View');
+
+            oldPanel.classList.remove('active');
+            newPanel.classList.add('active');
+            currentDetailView = view;
+
+            document.querySelectorAll('.detail-tabs .tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === view);
+            });
+        }
+        
+        // 更新终端销售表格
+        function updateTerminalTable() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            let data = DASHBOARD_DATA[currentCity].terminals;
+            if (search) data = data.filter(t => t.terminal.toLowerCase().includes(search));
+            
+            // 按等级排序：三级 > 二级 > 其他
+            const levelOrder = { '三级': 1, '二级': 2, '其他': 3 };
+            data.sort((a, b) => (levelOrder[a.level] || 99) - (levelOrder[b.level] || 99));
+            
+            // 分页
+            const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE_TERMINAL));
+            if (terminalPage > totalPages) terminalPage = totalPages;
+            const start = (terminalPage - 1) * PAGE_SIZE_TERMINAL;
+            const pageData = data.slice(start, start + PAGE_SIZE_TERMINAL);
+
+            document.getElementById('terminalHead').innerHTML = `
+                <tr>
+                    <th>终端名称</th>
+                    <th>等级</th>
+                    <th>市场规模(元)</th>
+                    <th>负责人</th>
+                    <th>在销产品数</th>
+                    <th>目标金额</th>
+                    <th>2025销售</th>
+                    <th>2026销售</th>
+                    <th>完成率</th>
+                    <th>终端费用率</th>
+                </tr>
+            `;
+            document.getElementById('terminalBody').innerHTML = pageData.map(t => `
+                <tr>
+                    <td class="clickable" onclick="jumpToProductDetail('${t.terminal.replace(/'/g, "\\'")}')">${t.terminal}</td>
+                    <td>${t.level}</td>
+                    <td>${formatMoney(t.market_size_value)}</td>
+                    <td>${t.manager}</td>
+                    <td class="clickable" onclick="jumpToProductDetail('${t.terminal.replace(/'/g, "\\'")}')">${t.selling_products}</td>
+                    <td>${formatMoney(t.target)}</td>
+                    <td>${formatMoney(t.sales_2025)}</td>
+                    <td>${formatMoney(t.sales_2026)}</td>
+                    <td><span class="kpi-rate ${getRateClass(t.completion_rate)}">${formatRate(t.completion_rate)}</span></td>
+                    <td>${t.terminal_fee_rate > 0 ? formatRate(t.terminal_fee_rate) : '-'}</td>
+                </tr>
+            `).join('');
+
+            renderPagination('terminalPagination', terminalPage, totalPages, data.length, 'goTerminalPage');
+        }
+
+        // 终端表格翻页
+        function goTerminalPage(page) {
+            terminalPage = page;
+            updateTerminalTable();
+        }
+        
+        // 更新产品销售表格
+        function updateProductTable() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+
+            // 如果是从终端下钻过来的，只显示该终端的产品明细
+            if (drilledTerminal) {
+                const terminalProducts = (DASHBOARD_DATA[currentCity] && DASHBOARD_DATA[currentCity].terminal_products[drilledTerminal]) || [];
+                let data = terminalProducts;
+                if (search) data = data.filter(p => p.product.toLowerCase().includes(search));
+
+                // 按目标金额从高到低排序
+                data.sort((a, b) => {
+                    if (a.target === 0 && b.target === 0) return 0;
+                    if (a.target === 0) return 1;
+                    if (b.target === 0) return -1;
+                    return b.target - a.target;
+                });
+
+                // 过滤掉目标金额和完成金额都为0的产品
+                data = data.filter(p => !(p.target === 0 && p.sales_2026 === 0));
+
+                // 分页
+                const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE_PRODUCT));
+                if (productPage > totalPages) productPage = totalPages;
+                const start = (productPage - 1) * PAGE_SIZE_PRODUCT;
+                const pageData = data.slice(start, start + PAGE_SIZE_PRODUCT);
+
+                document.getElementById('productHead').innerHTML = `
+                    <tr>
+                        <th colspan="6" style="text-align:left; background:linear-gradient(135deg,#1976d2,#42a5f5); padding:10px 15px;">
+                            <span style="cursor:pointer; text-decoration:underline; margin-right:12px;" onclick="clearDrill()">← 返回全部产品</span>
+                            当前终端：${drilledTerminal}
+                        </th>
+                    </tr>
+                    <tr>
+                        <th>产品名称</th>
+                        <th>目标金额</th>
+                        <th>完成金额</th>
+                        <th>完成率</th>
+                        <th>目标量</th>
+                        <th>完成量</th>
+                    </tr>
+                `;
+                document.getElementById('productBody').innerHTML = pageData.length === 0
+                    ? '<tr><td colspan="6" style="padding:20px; color:#90a4ae;">该终端暂无产品数据</td></tr>'
+                    : pageData.map(p => `
+                        <tr>
+                            <td>${p.product}</td>
+                            <td>${formatMoney(p.target)}</td>
+                            <td>${formatMoney(p.sales_2026)}</td>
+                            <td><span class="kpi-rate ${getRateClass(p.completion_rate)}">${formatRate(p.completion_rate)}</span></td>
+                            <td>${p.target_volume > 0 ? Math.round(p.target_volume).toLocaleString() : '-'}</td>
+                            <td>${p.complete_volume > 0 ? Math.round(p.complete_volume).toLocaleString() : '-'}</td>
+                        </tr>
+                    `).join('');
+
+                renderPagination('productPagination', productPage, totalPages, data.length, 'goProductPage');
+                return;
+            }
+
+            // 正常全部产品视图
+            let data = DASHBOARD_DATA[currentCity].products;
+            if (search) data = data.filter(p => p.product.toLowerCase().includes(search));
+            
+            // 按目标金额从高到低排序
+            data.sort((a, b) => {
+                if (a.target === 0 && b.target === 0) return 0;
+                if (a.target === 0) return 1;
+                if (b.target === 0) return -1;
+                return b.target - a.target;
+            });
+
+            // 过滤掉目标金额和完成金额都为0的产品
+            data = data.filter(p => !(p.target === 0 && p.sales_2026 === 0));
+
+            // 分页
+            const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE_PRODUCT));
+            if (productPage > totalPages) productPage = totalPages;
+            const start = (productPage - 1) * PAGE_SIZE_PRODUCT;
+            const pageData = data.slice(start, start + PAGE_SIZE_PRODUCT);
+            
+            document.getElementById('productHead').innerHTML = `
+                <tr>
+                    <th>产品名称</th>
+                    <th>在销终端数</th>
+                    <th>目标金额</th>
+                    <th>完成金额</th>
+                    <th>完成率</th>
+                    <th>产品费用率</th>
+                </tr>
+            `;
+            document.getElementById('productBody').innerHTML = pageData.map(p => `
+                <tr>
+                    <td class="clickable" onclick="showProductTerminals('${p.product.replace(/'/g, "\\'")}')">${p.product}</td>
+                    <td>${p.selling_terminals}</td>
+                    <td>${formatMoney(p.target)}</td>
+                    <td>${formatMoney(p.sales_2026)}</td>
+                    <td><span class="kpi-rate ${getRateClass(p.completion_rate)}">${formatRate(p.completion_rate)}</span></td>
+                    <td>${p.product_fee_rate > 0 ? formatRate(p.product_fee_rate) : '-'}</td>
+                </tr>
+            `).join('');
+
+            renderPagination('productPagination', productPage, totalPages, data.length, 'goProductPage');
+        }
+
+        // 产品表格翻页
+        function goProductPage(page) {
+            productPage = page;
+            updateProductTable();
+        }
+        
+        // 更新所有明细表格
+        function updateDetailTable() {
+            updateTerminalTable();
+            updateProductTable();
+        }
+        
+        // 终端下钻跳转到产品销售明细（仅显示该终端的产品）
+        let drilledTerminal = null;
+
+        function jumpToProductDetail(terminalName) {
+            drilledTerminal = terminalName;
+            productPage = 1;
+            document.getElementById('searchInput').value = '';
+            if (currentDetailView !== 'product') {
+                switchDetailView('product');
+            }
+            updateProductTable();
+        }
+
+        // 重置下钻状态（返回全部产品），仅清除状态，不切换tab
+        function clearDrill() {
+            drilledTerminal = null;
+            productPage = 1;
+            document.getElementById('searchInput').value = '';
+            updateProductTable();
+        }
+        
+        // 显示终端产品明细
+        function showTerminalProducts(terminalName) {
+            const allData = DASHBOARD_DATA[currentCity].terminals;
+            const terminal = allData.find(t => t.terminal === terminalName);
+            if (!terminal) return;
+            
+            const rawData = DASHBOARD_DATA[currentCity].products;
+            
+            document.getElementById('modalTitle').textContent = `终端: ${terminalName} - 产品明细`;
+            document.getElementById('modalTable').innerHTML = `
+                <table>
+                    <thead>
+                        <tr><th>产品名称</th><th>目标金额</th><th>2026销售</th><th>完成率</th></tr>
+                    </thead>
+                    <tbody>
+                        ${rawData.slice(0, 20).map(p => `
+                            <tr>
+                                <td>${p.product}</td>
+                                <td>${formatMoney(p.target)}</td>
+                                <td>${formatMoney(p.sales_2026)}</td>
+                                <td><span class="kpi-rate ${getRateClass(p.completion_rate)}">${formatRate(p.completion_rate)}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('detailModal').classList.add('show');
+        }
+        
+        // 显示产品终端明细
+        function showProductTerminals(productName) {
+            const terminals = (DASHBOARD_DATA[currentCity] && DASHBOARD_DATA[currentCity].product_terminals[productName]) || [];
+            
+            document.getElementById('modalTitle').textContent = `产品: ${productName} - 终端明细`;
+            document.getElementById('modalTable').innerHTML = `
+                <table>
+                    <thead>
+                        <tr><th>终端名称</th><th>等级</th><th>目标量</th><th>完成量</th><th>完成率</th><th>客户</th><th>费用率</th></tr>
+                    </thead>
+                    <tbody>
+                        ${terminals.map(t => `
+                            <tr>
+                                <td>${t.terminal}</td>
+                                <td>${t.level}</td>
+                                <td>${t.target_volume > 0 ? Math.round(t.target_volume).toLocaleString() : '-'}</td>
+                                <td>${t.complete_volume > 0 ? Math.round(t.complete_volume).toLocaleString() : '-'}</td>
+                                <td><span class="kpi-rate ${getRateClass(t.completion_rate)}">${formatRate(t.completion_rate)}</span></td>
+                                <td>${t.customer || '-'}</td>
+                                <td>${t.fee_rate > 0 ? formatRate(t.fee_rate) : '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('detailModal').classList.add('show');
+        }
+        
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('show');
+        }
+
+        // 点击遮罩层关闭弹窗
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+        
+        // 事件绑定 - 仅绑定城市导航按钮
+        document.querySelectorAll('#cityTabs .tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#cityTabs .tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentCity = this.dataset.city;
+                updateAll();
+            });
+        });
+        
+        document.getElementById('categoryFilter').addEventListener('change', function() {
+            currentCategory = this.value;
+            updateProgressChart();
+        });
+        
+        document.getElementById('searchInput').addEventListener('input', function() {
+            terminalPage = 1;
+            productPage = 1;
+            updateDetailTable();
+        });
+        
+        function updateAll() {
+            drilledTerminal = null;
+            terminalPage = 1;
+            productPage = 1;
+            updateKPICards();
+            updateCategoryCharts();
+            updateProgressChart();
+            updateLevelChart();
+            updateDetailTable();
+        }
+        
+        // 初始化
+        updateAll();
+        
+        // 响应式
+        window.addEventListener('resize', function() {
+            Object.values(charts).forEach(chart => chart && chart.resize());
+        });
+    </script>
+</body>
+</html>
